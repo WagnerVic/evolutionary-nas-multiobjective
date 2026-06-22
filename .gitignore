@@ -218,3 +218,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 .task-context/
+
+# --- Dados do projeto ---
+# Ignora o dataset baixado, mas mantém a pasta no versionamento.
+data/*
+!data/.gitkeep
