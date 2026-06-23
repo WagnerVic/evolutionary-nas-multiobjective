@@ -223,3 +223,6 @@ __marimo__/
 # Ignora o dataset baixado, mas mantém a pasta no versionamento.
 data/*
 !data/.gitkeep
+refs/*
+
+.cursor/
