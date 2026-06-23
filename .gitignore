@@ -226,3 +226,5 @@ data/*
 refs/*
 
 .cursor/
+DOCKER.md
+

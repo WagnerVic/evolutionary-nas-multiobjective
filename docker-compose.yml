@@ -1,0 +1,18 @@
+services:
+  nas:
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime}
+    image: evolutionary-nas:latest
+    working_dir: /app
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MPLCONFIGDIR: /tmp/matplotlib
+    shm_size: "2gb"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+      - ./figures:/app/figures
+      - ./analysis:/app/analysis
+    command: ["python", "-m", "experiments.run_sa"]
