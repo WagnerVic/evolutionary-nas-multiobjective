@@ -1,5 +1,20 @@
-# Dependências do projeto — adicionar conforme cada frente entra.
+# Dependências do projeto NAS leve multiobjetivo
 
-# --- Dados (scripts/download_data.py) ---
+# --- Core: modelo e treinamento ---
 torch>=2.2
 torchvision>=0.17
+torchinfo>=1.8
+
+# --- Otimização e experimentos ---
+numpy>=1.26
+pandas>=2.0
+tqdm>=4.66
+
+# --- Análise estatística (R3) ---
+scipy>=1.12
+
+# --- Visualização (R5) ---
+matplotlib>=3.8
+
+# --- Energia / ética (D6, opcional) ---
+codecarbon>=2.3
