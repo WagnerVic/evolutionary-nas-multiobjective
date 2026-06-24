@@ -30,7 +30,7 @@ from src.genotype import random_genotype
 
 def get_data_loaders(
     root: str = "data",
-    batch_size: int = 128,
+    batch_size: int = 512,
     num_workers: int = 2,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """Carrega Fashion-MNIST com split determinístico 50k/10k/10k (idêntico ao run_sa)."""
@@ -102,35 +102,39 @@ def main() -> None:
 
     # ── Busca aleatória ───────────────────────────────────────────────────────
     raw_rows: list[dict] = []
+    best_genotypes: list[tuple[int, float, float, float, np.ndarray]] = []
 
     for seed in args.seeds:
+        print(f"\n[random search] seed={seed} — avaliando {args.n_evals} arquiteturas...")
+        rng = np.random.default_rng(seed)
+
+        pool: list[tuple[np.ndarray, float, float, float]] = []
+        for i in tqdm(range(args.n_evals), desc=f"  seed={seed}", leave=False):
+            g = random_genotype(rng)
+            eval_seed = seed * 10000 + i
+            f1, f2, f3 = evaluate(
+                g, train_loader, val_loader,
+                device=args.device, seed=eval_seed, n_epochs=args.epochs_proxy,
+            )
+            pool.append((g.copy(), f1, f2, f3))
+
         for w1, w2, w3 in WEIGHT_VECTORS:
-            print(f"\n[random search] seed={seed}, weights=({w1:.2f},{w2:.2f},{w3:.2f})")
-            rng = np.random.default_rng(seed)
-
-            best_fitness = float("inf")
-            best_objs = (1.0, 0.0, 0.0)
-
-            for i in tqdm(range(args.n_evals), desc=f"  seed={seed}", leave=False):
-                g = random_genotype(rng)
-                eval_seed = seed * 10000 + i
-                f1, f2, f3 = evaluate(
-                    g, train_loader, val_loader,
-                    device=args.device, seed=eval_seed, n_epochs=args.epochs_proxy,
-                )
-                fit = _fitness(f1, f2, f3, (w1, w2, w3), f2_ref, f3_ref)
-
-                if fit < best_fitness:
-                    best_fitness = fit
-                    best_objs = (f1, f2, f3)
+            best_idx = min(
+                range(len(pool)),
+                key=lambda idx: _fitness(pool[idx][1], pool[idx][2], pool[idx][3],
+                                         (w1, w2, w3), f2_ref, f3_ref),
+            )
+            g_best, f1_best, f2_best, f3_best = pool[best_idx]
 
             raw_rows.append({
                 "method": "random_search",
                 "seed": seed,
                 "w1": w1, "w2": w2, "w3": w3,
-                "f1": best_objs[0], "f2": best_objs[1], "f3": best_objs[2],
+                "f1": f1_best, "f2": f2_best, "f3": f3_best,
             })
-            print(f"  -> best: f1={best_objs[0]:.4f}, f2={best_objs[1]:.0f}, f3={best_objs[2]:.0f}")
+            best_genotypes.append((seed, w1, w2, w3, g_best.copy()))
+            print(f"  weights=({w1:.2f},{w2:.2f},{w3:.2f}) -> "
+                  f"f1={f1_best:.4f}, f2={f2_best:.0f}, f3={f3_best:.0f}")
 
     # ── LeNet-5 aproximada ────────────────────────────────────────────────────
     print("\n[lenet5] Avaliando LeNet-5 aproximada (avaliação completa)...")
@@ -150,11 +154,33 @@ def main() -> None:
         })
         print(f"  seed={seed}: test_acc={test_acc:.4f}, f2={f2:.0f}, f3={f3:.0f}")
 
-    # Salvar
+    # Salvar resultados da busca (validação)
     df = pd.DataFrame(raw_rows)
     df.to_csv(results_dir / "baseline_raw.csv", index=False)
     print(f"\n[salvo] {results_dir / 'baseline_raw.csv'}")
-    print("[concluído] Baseline finalizado.")
+
+    # ── Avaliação final no conjunto de teste ──────────────────────────────────
+    print(f"\n[teste] Avaliação final dos {len(best_genotypes)} melhores genótipos "
+          f"({args.epochs_final} épocas)...")
+
+    test_rows: list[dict] = []
+
+    for seed, w1, w2, w3, genotype in tqdm(best_genotypes, desc="test eval"):
+        f1_test, f2_test, f3_test = evaluate(
+            genotype, train_loader, test_loader,
+            device=args.device, seed=seed, n_epochs=args.epochs_final,
+        )
+        test_rows.append({
+            "method": "random_search",
+            "seed": seed,
+            "w1": w1, "w2": w2, "w3": w3,
+            "test_acc": 1.0 - f1_test, "f2": f2_test, "f3": f3_test,
+        })
+
+    df_test = pd.DataFrame(test_rows)
+    df_test.to_csv(results_dir / "baseline_test_eval.csv", index=False)
+    print(f"[salvo] {results_dir / 'baseline_test_eval.csv'}")
+    print("\n[concluído] Baseline finalizado.")
 
 
 if __name__ == "__main__":
