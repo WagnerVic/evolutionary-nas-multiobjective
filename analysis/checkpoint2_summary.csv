@@ -1,0 +1,5 @@
+Método,Val acc (%),HV,Params (k),MFLOPs,Nota
+NSGA-II (melhor),93.17 ± 0.39,924.0417 ± 3.0801,-,-,"10 sementes, multiobjetivo"
+SA (Checkpoint 1),90.50 ± 0.60,-,147.2,17.0,"Opção A: melhor peso por semente, 10 seeds"
+Busca Aleatória,82.40 ± 9.68,-,62.2,48.0,"300 amostras, mesmo orçamento"
+LeNet-5 (fixo),89.71,-,61.8,0.85,Arquitetura fixa de referência
