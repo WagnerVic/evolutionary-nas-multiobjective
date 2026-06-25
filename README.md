@@ -21,6 +21,8 @@ Como **baseline**: busca aleatória no mesmo espaço de busca + arquitetura fixa
 
 **Benchmark:** [Fashion-MNIST](https://github.com/zalandoresearch/fashion-mnist) (10 classes, 28×28, 70k imagens). O MNIST é usado como instância secundária para checagem de sanidade.
 
+---
+
 ## Reprodução
 
 Requer Python 3.10+ (testado em 3.12).
@@ -48,6 +50,7 @@ Confira o resultado:
 ```bash
 ls data/        # deve conter FashionMNIST/ e MNIST/
 ```
+
 ### Executar o notebook (Checkpoint 2 — NSGA-II)
 
 Com o ambiente ativado, abra o notebook interativamente:
@@ -57,6 +60,8 @@ jupyter notebook nas_nsga2.ipynb
 ```
 
 Execute todas as células em sequência. A ordem importa: cada seção depende das anteriores.
+
+---
 
 ## Resultados pré-computados
 
@@ -69,13 +74,16 @@ analysis/
 ├── checkpoint2_summary.csv      # tabela comparativa: NSGA-II × SA × Aleatória × LeNet-5
 ├── discussao_tradeoffs.md       # discussão de trade-offs e análise crítica
 └── nsga2_results.json           # hipervolumes e acurácias por semente (NSGA-II)
+```
 
+```
 figures/
 ├── fig1_pareto_front.pdf        # fronteira de Pareto — 3 projeções 2D
 ├── fig2_hv_convergence.pdf      # curva de convergência do hipervolume (10 sementes)
 ├── fig3_boxplot_comparison.pdf  # boxplot NSGA-II × SA × Aleatória × LeNet-5
 │                                # + convergência comparada NSGA-II × SA (duplo eixo)
 └── fig4_pareto_gene_analysis.pdf  # heatmap de genes + distribuição de filtros na fronteira
+```
 
 ### Dados brutos do SA (Checkpoint 1)
 
@@ -86,6 +94,8 @@ data/
 └── sa_test_eval.csv    # test_acc da melhor configuração por semente
 ```
 
+---
+
 ## Estrutura do repositório
 
 ```
@@ -95,9 +105,11 @@ evolutionary-nas-multiobjective/
 ├── scripts/        # utilitários (download de dados, etc.)
 ├── src/            # código-fonte (genótipo, modelo, avaliação, SA, NSGA-II, baseline)
 ├── figures/        # figuras geradas
-├── analysis/       # discussão de tardeoffs e csv de métricas
+├── analysis/       # discussão de trade-offs e csv de métricas
 └── data/           # datasets (não versionado) e resultados do SA
 ```
+
+---
 
 ## Equipe
 
