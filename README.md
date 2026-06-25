@@ -64,6 +64,12 @@ evolutionary-nas-multiobjective/
 └── data/           # datasets (não versionado)
 ```
 
+## Docker / SSH
+
+O projeto pode ser executado em container para rodar em outra máquina via SSH.
+Veja os comandos em [DOCKER.md](DOCKER.md), incluindo build, download dos dados,
+execução em CPU e execução com GPU NVIDIA.
+
 ## Equipe
 
 - Raphael Alves de Lima Soares (202403922)
