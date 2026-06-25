@@ -1,137 +1,121 @@
-"""Espaço de busca, genótipo e reparo (proposta P8, seções 3.1 e 3.3).
+"""Representação genotípica para o NAS leve multiobjetivo.
 
-O genótipo é um vetor de tamanho fixo com `MAX_BLOCKS` blocos
-convolucionais possíveis; o gene `l` diz quantos estão "ligados" na
-arquitetura construída. Os blocos além de `l` continuam no cromossomo
-(não são apagados) para que crossover/mutação possam reexpressá-los depois
-sem perder informação genética — técnica padrão para profundidade variável
-em representações de tamanho fixo.
-
-Todas as variáveis são modeladas como `Choice` (categóricas) para o pymoo,
-porque o espaço descrito na proposta é discreto em todos os genes. Isso faz
-os operadores default do pymoo para `Choice` (crossover uniforme + mutação
-por reamostragem) coincidirem exatamente com o que a seção 3.4 pede.
+Cada indivíduo é um vetor de 20 genes (índices inteiros) de comprimento fixo.
+Genes de blocos além de L são mantidos no vetor mas ignorados no decode
+(memória genética — ver documentação do plano).
 """
 
-from dataclasses import dataclass, replace
+from __future__ import annotations
 
-from pymoo.core.variable import Choice
+import numpy as np
 
-INPUT_SIZE = 28
-INPUT_CHANNELS = 1
-NUM_CLASSES = 10
+# ──────────────────────────────────────────────────────────────────────────────
+# Espaço de busca — domínios de cada gene
+# ──────────────────────────────────────────────────────────────────────────────
 
-MAX_BLOCKS = 4
-L_CHOICES = (2, 3, 4)
-MIN_BLOCKS = min(L_CHOICES)
+DOMAINS: dict[str, list] = {
+    "L": [2, 3, 4],
+    "filters": [8, 16, 32, 64],
+    "kernel": [3, 5, 7],
+    "pooling": [0, 1],
+    "activation": ["relu", "leakyrelu"],
+    "dense": [32, 64, 128],
+    "dropout": [0.0, 0.25, 0.5],
+    "lr": [1e-2, 1e-3, 1e-4],
+}
 
-FILTERS = (8, 16, 32, 64)
-KERNELS = (3, 5, 7)
-POOL = (0, 1)
-ACTS = ("relu", "leaky_relu")
-DENSE_UNITS = (32, 64, 128)
-DROPOUTS = (0.0, 0.25, 0.5)
-LRS = (1e-2, 1e-3, 1e-4)
+N_BLOCKS_MAX = 4
+N_GENES = 20
 
-PARAM_CEILING = 500_000
-
-
-@dataclass(frozen=True)
-class Genotype:
-    l: int
-    filters: tuple[int, ...]
-    kernels: tuple[int, ...]
-    pools: tuple[int, ...]
-    acts: tuple[str, ...]
-    dense_units: int
-    dropout: float
-    lr: float
-
-
-def pymoo_vars() -> dict[str, Choice]:
-    """Declara as variáveis mistas do cromossomo para `Problem(vars=...)`."""
-    variables: dict[str, Choice] = {"L": Choice(options=L_CHOICES)}
-    for i in range(MAX_BLOCKS):
-        variables[f"f{i}"] = Choice(options=FILTERS)
-        variables[f"k{i}"] = Choice(options=KERNELS)
-        variables[f"p{i}"] = Choice(options=POOL)
-        variables[f"a{i}"] = Choice(options=ACTS)
-    variables["d"] = Choice(options=DENSE_UNITS)
-    variables["dropout"] = Choice(options=DROPOUTS)
-    variables["lr"] = Choice(options=LRS)
-    return variables
+# Mapa de posições no vetor
+_GENE_RANGES: list[tuple[str, int, int]] = [
+    # (nome do domínio, idx_início, idx_fim_exclusivo)
+    ("L", 0, 1),
+    ("filters", 1, 5),
+    ("kernel", 5, 9),
+    ("pooling", 9, 13),
+    ("activation", 13, 17),
+    ("dense", 17, 18),
+    ("dropout", 18, 19),
+    ("lr", 19, 20),
+]
 
 
-def decode(x: dict) -> Genotype:
-    """Converte o dict de variáveis mistas do pymoo em um `Genotype`."""
-    return Genotype(
-        l=int(x["L"]),
-        filters=tuple(int(x[f"f{i}"]) for i in range(MAX_BLOCKS)),
-        kernels=tuple(int(x[f"k{i}"]) for i in range(MAX_BLOCKS)),
-        pools=tuple(int(x[f"p{i}"]) for i in range(MAX_BLOCKS)),
-        acts=tuple(str(x[f"a{i}"]) for i in range(MAX_BLOCKS)),
-        dense_units=int(x["d"]),
-        dropout=float(x["dropout"]),
-        lr=float(x["lr"]),
-    )
+def _domain_size(gene_idx: int) -> int:
+    """Retorna o tamanho do domínio para um dado índice de gene."""
+    for domain_name, start, end in _GENE_RANGES:
+        if start <= gene_idx < end:
+            return len(DOMAINS[domain_name])
+    raise ValueError(f"gene_idx={gene_idx} fora do intervalo 0..{N_GENES - 1}")
 
 
-def _simulate(l: int, kernels: tuple[int, ...], pools: tuple[int, ...]) -> tuple[int, list[int], list[int]]:
-    """Simula o encadeamento conv (sem padding) + pooling bloco a bloco.
+# ──────────────────────────────────────────────────────────────────────────────
+# Funções públicas
+# ──────────────────────────────────────────────────────────────────────────────
 
-    Retorna (profundidade_efetiva, kernels_usados, pools_usados). Reduz o
-    kernel de um bloco se ele não couber no mapa espacial atual; se nem o
-    menor kernel permitido couber, para ali (profundidade efetiva < l).
+
+def random_genotype(rng: np.random.Generator) -> np.ndarray:
+    """Gera um genótipo aleatório válido."""
+    g = np.zeros(N_GENES, dtype=np.int8)
+    for i in range(N_GENES):
+        g[i] = rng.integers(0, _domain_size(i))
+    return g
+
+
+def decode(g: np.ndarray) -> dict:
+    """Converte vetor de índices em dicionário de hiperparâmetros reais.
+
+    Genes de blocos i >= L são omitidos do resultado.
     """
-    size = INPUT_SIZE
-    used_kernels = list(kernels)
-    used_pools = list(pools)
-    effective_l = 0
-    for i in range(l):
-        feasible = [k for k in KERNELS if k <= size]
-        if not feasible:
-            break
-        k = used_kernels[i] if used_kernels[i] in feasible else max(feasible)
-        used_kernels[i] = k
-        size = size - k + 1
-        if used_pools[i] and size >= 2:
-            size //= 2
-        else:
-            used_pools[i] = 0
-        effective_l = i + 1
-    return effective_l, used_kernels, used_pools
+    n_blocks = DOMAINS["L"][g[0]]
+
+    blocks = []
+    for i in range(n_blocks):
+        blocks.append({
+            "filters": DOMAINS["filters"][g[1 + i]],
+            "kernel": DOMAINS["kernel"][g[5 + i]],
+            "pooling": DOMAINS["pooling"][g[9 + i]],
+            "activation": DOMAINS["activation"][g[13 + i]],
+        })
+
+    return {
+        "n_blocks": n_blocks,
+        "blocks": blocks,
+        "dense_units": DOMAINS["dense"][g[17]],
+        "dropout": DOMAINS["dropout"][g[18]],
+        "lr": DOMAINS["lr"][g[19]],
+    }
 
 
-def repair(g: Genotype) -> Genotype:
-    """Repara um genótipo para que a arquitetura resultante seja sempre válida.
+def mutate(g: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Perturba exatamente 1 gene aleatório, produzindo valor diferente do atual.
 
-    Estratégia (seção 3.3): se o pooling encolher o mapa espacial rápido
-    demais e a profundidade efetiva cair abaixo de `l`, tenta de novo sem
-    pooling (com kernels <=7 e <=4 blocos, o mapa nunca zera sem pooling:
-    28→22→16→10→4), o que garante 2≤l_efetivo≤4 sempre.
+    Decisão de design: quando L muda, os genes dos blocos que se tornam ativos
+    mantêm seus últimos valores (memória genética). Não são randomizados.
     """
-    effective_l, kernels, pools = _simulate(g.l, g.kernels, g.pools)
-    if effective_l < g.l:
-        effective_l, kernels, pools = _simulate(g.l, g.kernels, (0,) * MAX_BLOCKS)
-    return replace(g, l=effective_l, kernels=tuple(kernels), pools=tuple(pools))
+    g_new = g.copy()
+    gene_idx = rng.integers(0, N_GENES)
+    dom_size = _domain_size(gene_idx)
+
+    if dom_size <= 1:
+        return g_new
+
+    current = g_new[gene_idx]
+    choices = [v for v in range(dom_size) if v != current]
+    g_new[gene_idx] = rng.choice(choices)
+    return g_new
 
 
-def block_spatial_sizes(g: Genotype) -> list[tuple[int, int, int]]:
-    """Retorna (tamanho_entrada, tamanho_pos_conv, tamanho_pos_pool) por bloco efetivo.
+def is_valid(g: np.ndarray) -> bool:
+    """Verifica se o genótipo resulta em mapa espacial >= 1x1.
 
-    Assume que `g` já passou por `repair` (kernels sempre cabem no mapa
-    espacial corrente).
+    Com same-padding (padding=kernel//2) a dimensão só diminui via MaxPool(2,2).
+    Entrada: 28x28. Cada pooling divide por 2.
     """
-    sizes = []
-    size = INPUT_SIZE
-    for i in range(g.l):
-        in_size = size
-        conv_size = in_size - g.kernels[i] + 1
-        out_size = conv_size // 2 if g.pools[i] else conv_size
-        sizes.append((in_size, conv_size, out_size))
-        size = out_size
-    return sizes
-
-
-def final_spatial_size(g: Genotype) -> int:
-    return block_spatial_sizes(g)[-1][2]
+    n_blocks = DOMAINS["L"][g[0]]
+    spatial = 28
+    for i in range(n_blocks):
+        if DOMAINS["pooling"][g[9 + i]] == 1:
+            spatial = spatial // 2
+    # AdaptiveAvgPool2d(1) cuida do resto, mas verificamos por segurança
+    return spatial >= 1
