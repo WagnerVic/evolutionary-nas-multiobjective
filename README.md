@@ -48,6 +48,43 @@ Confira o resultado:
 ```bash
 ls data/        # deve conter FashionMNIST/ e MNIST/
 ```
+### Executar o notebook (Checkpoint 2 — NSGA-II)
+
+Com o ambiente ativado, abra o notebook interativamente:
+
+```bash
+jupyter notebook nas_nsga2.ipynb
+```
+
+Execute todas as células em sequência. A ordem importa: cada seção depende das anteriores.
+
+## Resultados pré-computados
+
+Os resultados das execuções já realizadas estão versionados no repositório e podem ser consultados sem re-executar o notebook.
+
+### Métricas e figuras geradas
+
+```
+analysis/
+├── checkpoint2_summary.csv      # tabela comparativa: NSGA-II × SA × Aleatória × LeNet-5
+├── discussao_tradeoffs.md       # discussão de trade-offs e análise crítica
+└── nsga2_results.json           # hipervolumes e acurácias por semente (NSGA-II)
+
+figures/
+├── fig1_pareto_front.pdf        # fronteira de Pareto — 3 projeções 2D
+├── fig2_hv_convergence.pdf      # curva de convergência do hipervolume (10 sementes)
+├── fig3_boxplot_comparison.pdf  # boxplot NSGA-II × SA × Aleatória × LeNet-5
+│                                # + convergência comparada NSGA-II × SA (duplo eixo)
+└── fig4_pareto_gene_analysis.pdf  # heatmap de genes + distribuição de filtros na fronteira
+
+### Dados brutos do SA (Checkpoint 1)
+
+```
+data/
+├── sa_raw.csv          # melhor solução por semente × vetor de pesos (f1, f2, f3, runtime)
+├── sa_history.csv      # histórico iteração a iteração (150 iters × 5 pesos × 10 seeds)
+└── sa_test_eval.csv    # test_acc da melhor configuração por semente
+```
 
 ## Estrutura do repositório
 
@@ -57,11 +94,9 @@ evolutionary-nas-multiobjective/
 ├── requirements.txt
 ├── scripts/        # utilitários (download de dados, etc.)
 ├── src/            # código-fonte (genótipo, modelo, avaliação, SA, NSGA-II, baseline)
-├── experiments/    # scripts das rodadas (sementes fixadas)
-├── results/        # métricas brutas (CSV)
 ├── figures/        # figuras geradas
-├── analysis/       # estatística + geração de figuras
-└── data/           # datasets (não versionado)
+├── analysis/       # discussão de tardeoffs e csv de métricas
+└── data/           # datasets (não versionado) e resultados do SA
 ```
 
 ## Equipe
