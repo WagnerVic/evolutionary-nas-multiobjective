@@ -167,11 +167,13 @@ def fig_scatter_f1_f2():
 
     ax.scatter(sa_raw["f2"], sa_raw["f1"], label="SA", alpha=0.7, marker="o", s=40)
     ax.scatter(rs_raw["f2"], rs_raw["f1"], label="Random Search", alpha=0.7, marker="^", s=40)
-    ax.scatter(lenet_raw["f2"], lenet_raw["f1"], label="LeNet-5", alpha=0.9, marker="s", s=60, c="green")
+    # LeNet-5 omitida: seu f1 disponível é de TESTE, não de validação — plotá-la aqui
+    # misturaria eixos não comparáveis (ver relatorio_erros_SA.md, erro #5). A comparação
+    # com a LeNet-5 aparece na Fig. 3 (boxplot de acurácia no teste).
 
     ax.set_xlabel("f₂ (parâmetros treináveis)")
     ax.set_ylabel("f₁ (1 − acurácia validação)")
-    ax.set_title("Trade-off: Erro × Parâmetros (validação, todas as runs)")
+    ax.set_title("Trade-off: Erro × Parâmetros (validação) — SA vs Random Search")
     ax.legend()
     ax.set_xscale("log")
     ax.grid(True, alpha=0.3)
@@ -189,11 +191,12 @@ def fig_scatter_f1_f3():
 
     ax.scatter(sa_raw["f3"], sa_raw["f1"], label="SA", alpha=0.7, marker="o", s=40)
     ax.scatter(rs_raw["f3"], rs_raw["f1"], label="Random Search", alpha=0.7, marker="^", s=40)
-    ax.scatter(lenet_raw["f3"], lenet_raw["f1"], label="LeNet-5", alpha=0.9, marker="s", s=60, c="green")
+    # LeNet-5 omitida: seu f1 disponível é de TESTE, não de validação (ver erro #5).
+    # A comparação com a LeNet-5 aparece na Fig. 3 (boxplot de acurácia no teste).
 
     ax.set_xlabel("f₃ (MACs — custo de inferência)")
     ax.set_ylabel("f₁ (1 − acurácia validação)")
-    ax.set_title("Trade-off: Erro × MACs (validação, todas as runs)")
+    ax.set_title("Trade-off: Erro × MACs (validação) — SA vs Random Search")
     ax.legend()
     ax.set_xscale("log")
     ax.grid(True, alpha=0.3)
@@ -235,15 +238,15 @@ def statistical_analysis():
     print("=" * 80)
 
     for w1, w2, w3 in weight_vectors:
-        sa_f1 = sa_raw[(sa_raw["w1"] == w1) & (sa_raw["w2"] == w2) & (sa_raw["w3"] == w3)]["f1"].values
-        rs_f1 = rs_raw[(rs_raw["w1"] == w1) & (rs_raw["w2"] == w2) & (rs_raw["w3"] == w3)]["f1"].values
+        # Pareamento correto por SEMENTE: cada seed contribui com 1 par (SA, RS).
+        # NÃO ordenar os vetores — np.sort destruiria o pareamento por seed e o teste
+        # deixaria de ser um Wilcoxon pareado válido (ver relatorio_erros_SA.md, erro #1).
+        sa_w = sa_raw[(sa_raw["w1"] == w1) & (sa_raw["w2"] == w2) & (sa_raw["w3"] == w3)][["seed", "f1"]]
+        rs_w = rs_raw[(rs_raw["w1"] == w1) & (rs_raw["w2"] == w2) & (rs_raw["w3"] == w3)][["seed", "f1"]]
 
-        sa_f1 = np.sort(sa_f1)
-        rs_f1 = np.sort(rs_f1)
-
-        n = min(len(sa_f1), len(rs_f1))
-        sa_f1 = sa_f1[:n]
-        rs_f1 = rs_f1[:n]
+        paired = sa_w.merge(rs_w, on="seed", suffixes=("_sa", "_rs")).sort_values("seed")
+        sa_f1 = paired["f1_sa"].values
+        rs_f1 = paired["f1_rs"].values
 
         # Wilcoxon signed-rank test (pareado por seed)
         stat_w, p_value = stats.wilcoxon(sa_f1, rs_f1, alternative="two-sided")
