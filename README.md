@@ -49,6 +49,30 @@ Confira o resultado:
 ls data/        # deve conter FashionMNIST/ e MNIST/
 ```
 
+## Rodar a busca NSGA-II
+
+```bash
+python experiments/run_nsga2.py
+```
+
+Por padrão usa um subconjunto do Fashion-MNIST (4000 treino / 1000 validação)
+e um orçamento pequeno (`pop-size=16`, `n-gen=10`, `epochs=5`), para rodar em
+~15–25 min em CPU comum (medido: ~8s por indivíduo avaliado nesse preset).
+Para uma rodada "para valer" (dataset completo, busca maior):
+
+```bash
+python experiments/run_nsga2.py --pop-size 40 --n-gen 30 --epochs 15 \
+    --train-size -1 --val-size -1
+```
+
+Cada execução grava em `results/nsga2/<timestamp>/`:
+
+- `history.csv` — todo indivíduo avaliado durante a busca (genes + f1/val_acc/params/macs);
+- `pareto_front.csv` — soluções não-dominadas finais, com acurácia de teste (medida fora da busca, seção 3.3 da proposta);
+- `config.json` — hiperparâmetros da rodada (reprodutibilidade).
+
+Outras opções úteis: `--device {auto,cpu,cuda}`, `--seed`, `--param-ceiling` (teto de parâmetros, default 500k). Veja `python experiments/run_nsga2.py --help`.
+
 ## Estrutura do repositório
 
 ```

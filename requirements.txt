@@ -3,3 +3,7 @@
 # --- Dados (scripts/download_data.py) ---
 torch>=2.2
 torchvision>=0.17
+
+# --- Busca NSGA-II (src/, experiments/run_nsga2.py) ---
+numpy>=1.26
+pymoo>=0.6.1
